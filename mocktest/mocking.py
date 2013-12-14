@@ -345,8 +345,8 @@ def stub_method(obj, name):
 		if isinstance(old_attr, StubbedMethod):
 			return old_attr
 	except AttributeError:
-		pass
-	new_attr = StubbedMethod(name)
+		old_attr = None
+	new_attr = StubbedMethod(name, old_attr)
 	setattr(obj, name, new_attr)
 	return new_attr
 
@@ -362,9 +362,10 @@ class StubbedMethod(object):
 
 		The set of calls this stub has received, as a list of :class:`~mocktest.callrecord.Call` instances.
 	"""
-	def __init__(self, name):
+	def __init__(self, name, original=None):
 		self._acts = []
 		self._name = name
+		self._original = original
 		self.received_calls = []
 		MockTransaction.add_teardown(self._verify)
 	
@@ -372,7 +373,7 @@ class StubbedMethod(object):
 		return "stubbed method %r" %(self._name,)
 	
 	def _new_act(self, name):
-		act = MockAct(name)
+		act = MockAct(name, self._original)
 		self._acts.append(act)
 		return act
 	
@@ -425,10 +426,11 @@ class MockAct(object):
 
 	_action = None
 
-	def __init__(self, name):
+	def __init__(self, name, original=None):
 		self.time = self.times = NoopDelegator(self)
 		self._name = name
-	
+		self._original = original
+
 	def __call__(self, *args, **kwargs):
 		"""
 		restrict the checked set of function calls to those with
@@ -660,18 +662,23 @@ class MockAct(object):
 					return vals.pop(0)
 				except IndexError:
 					raise ReturnValuesExhausted()
- 
+
 			self._action = action
 		else:
 			self._action = lambda *a, **k: val
 		return self
 	then_return = and_return
-	
+
 	def and_call(self, func):
 		"""When this act matches, call the given `func` and return its value."""
 		self._action = func
 		return self
 	then_call = and_call
+
+	def and_call_original(self):
+		"""When this act matches, call the original function this stub mocks."""
+		return self.and_call(self._original)
+	then_call_original = and_call_original
 
 	def and_raise(self, exc):
 		"""When this act matches, raise the given exception instance."""
