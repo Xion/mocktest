@@ -102,6 +102,18 @@ class TestMockingCalls(TestCase):
 		when(obj).repr.then_return('repr')
 		when(obj).foo(1).then_call(lambda i: "%s proxied! %s" % (obj.repr(), i))
 		assert obj.foo(1) == "repr proxied! 1"
+
+	@passing
+	def test_delegating_to_original(self):
+		class Obj(object):
+			INC = 1
+			def foo(self, x):
+				return x + Obj.INC
+		obj = Obj()
+		when(obj).foo(1).then_return(42)
+		when(obj).foo(2).then_call_original()
+		assert obj.foo(1) == 42
+		assert obj.foo(2) == 2 + Obj.INC
 	
 	@passing
 	def test_replacing_properties(self):
